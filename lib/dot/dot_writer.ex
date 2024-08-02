@@ -4,6 +4,8 @@ defmodule Exa.Dot.DotWriter do
   """
   require Logger
 
+  alias Exa.Types, as: E
+
   import Exa.Color.Types
   alias Exa.Color.Col3b
 
@@ -24,14 +26,21 @@ defmodule Exa.Dot.DotWriter do
 
   # types ----------
 
-  @typep id() :: String.t() | pos_integer() | atom()
+  # map key for graph attributes before aliasing
+  # - string: graph/subcluster name
+  # - vert: node ID integer
+  # - atom: :node, :edge and any other attribute key
+  # TODO - needs clarifying, why not gkey() including edges
+  @typep id() :: D.gname() | D.vert() | atom()
   defguardp is_id(id) when is_nonempty_string(id) or is_pos_int(id) or is_atom(id)
 
   # something from which node or edge attributes can be extracted
   # local attribute keywords or global graph attributes
+  # graphs_attrs is a map with attr_kw as values
   @typep attrs() :: D.attr_kw() | D.graph_attrs()
 
-  # something from which an alias can be extracted
+  # an alias is a name that will be substituted for nodes in the DOT text
+  # alian is something from which an alias can be extracted
   # optional alias String, or local attribute keywords, or global graph attributes
   @typep alian() :: nil | String.t() | attrs()
 
@@ -51,7 +60,7 @@ defmodule Exa.Dot.DotWriter do
   def end_dot(io), do: io |> close_graph() |> to_text()
 
   @doc "Write DOT text data to file."
-  @spec to_file(T.textdata(), String.t()) :: T.textdata()
+  @spec to_file(T.textdata(), E.filename()) :: T.textdata()
   def to_file(text, filename) do
     Exa.File.to_file_text(text, filename)
   end
@@ -80,15 +89,6 @@ defmodule Exa.Dot.DotWriter do
 
   # attributes ----------
 
-  @doc """
-  A single top-level standalone attribute.
-  The attribute appears on its own, outside any node or edge.
-  """
-  @spec attribute(I.indent(), String.t() | atom(), any()) :: I.indent()
-  def attribute(io, k, v), do: txtl(io, attr(k, v))
-
-  # specific top-level attributes
-
   @doc "Set the rankdir graph attribute."
   @spec rankdir(I.indent(), D.rankdir()) :: I.indent()
   def rankdir(io, rankdir), do: attribute(io, :rankdir, rankdir)
@@ -105,17 +105,62 @@ defmodule Exa.Dot.DotWriter do
   @spec fontname(I.indent(), String.t()) :: I.indent()
   def fontname(io, font), do: attribute(io, :fontname, font)
 
+  @doc """
+  A single top-level standalone attribute.
+  The attribute appears on its own, outside any node or edge.
+  """
+  @spec attribute(I.indent(), String.t() | atom(), any()) :: I.indent()
+  def attribute(io, k, v) do
+    io |> newl() |> txt(attr(k, v)) |> chr(?;) |> endl()
+  end
+
   # nodes ------------
 
   @doc """
-  Write a top-level property with optional alias or attributes.
+  Write top-level properties from graph attribute map.
+  Inclulde special node/edge properties
+  and regular standalone attributes.
 
-  Use the id `:node` or `:edge`.
-  Top-level properties use a node textual format.
+  Properties use the keys `:node` or `:edge`
+  and are written in node format.
+
+  Other global attributes are keyed by the graph name
+  and are written one per line.
   """
-  @spec global(I.indent(), :node | :edge, alian()) :: I.indent()
-  def global(io, id, alian \\ nil) when id in [:node, :edge] do
-    node(io, id, alian)
+  @spec globals(I.indent(), D.gname(), D.graph_attrs()) :: I.indent()
+  def globals(io, gname, gattrs) when is_string(gname) do
+    io = io |> global(:node, gattrs) |> global(:edge, gattrs)
+
+    case id_attrs!(gname, gattrs) do
+      {_, []} ->
+        io
+
+      {^gname, attrs} ->
+        Enum.reduce(attrs, io, fn {k, v}, io ->
+          attribute(io, k, v)
+        end)
+    end
+  end
+
+  @doc """
+  Write common top-level node/edge property attributes.
+
+  Use the key `:node` or `:edge`.
+  Top-level properties use a node textual format.
+  So even the `:edge` properties use a node format.
+
+  Global properties do not use aliases.
+  The attributes must be a keyword list,
+  or graph attribute map with keyword list values.
+
+  Only write to output if there are attributes present.
+  """
+  @spec global(I.indent(), :node | :edge, attrs()) :: I.indent()
+  def global(io, id, attrs) when id in [:node, :edge] do
+    case id_attrs!(id, attrs) do
+      {_, []} -> io
+      {key, attrs} -> node(io, key, attrs)
+    end
   end
 
   @doc "Write a node with optional alias or attributes."
@@ -129,8 +174,12 @@ defmodule Exa.Dot.DotWriter do
   Write a compact list of nodes, without attributes, on one line.
   The optional graph attributes are only for aliases.
   """
-  @spec nodes(I.indent(), [id(), ...], D.graph_attrs()) :: I.indent()
-  def nodes(io, ids, gattrs \\ %{}) when is_list(ids) do
+  @spec nodes(I.indent(), [id()], D.graph_attrs()) :: I.indent()
+  def nodes(io, ids, gattrs \\ %{}) 
+
+  def nodes(io, [], _), do: io
+
+  def nodes(io, ids, gattrs) when is_list(ids) do
     io
     |> newl()
     |> reduce(ids, fn id, io ->
@@ -145,11 +194,11 @@ defmodule Exa.Dot.DotWriter do
   @doc """
   Write an edge with optional aliases or attributes.
 
-  The attributes are:
+  The attributes are either:
   - global to provide both node aliases
-  - just keywords for edges attribute, without aliases
+  - just keywords for edge attributes, without aliases
   """
-  @spec edge(I.indent(), id(), id(), D.graph_attrs() | D.attr_kw()) :: I.indent()
+  @spec edge(I.indent(), id(), id(), attrs()) :: I.indent()
   def edge(io, id, jd, attrs \\ []) when is_id(id) and is_id(jd) do
     {i, _} = id_attrs!(id, attrs)
     {j, _} = id_attrs!(jd, attrs)
@@ -169,7 +218,10 @@ defmodule Exa.Dot.DotWriter do
   """
   @spec edges(I.indent(), [{id(), id()}], D.graph_attrs()) :: I.indent()
   def edges(io, edges, gattrs \\ %{})
-      when is_list(edges) and edges != [] and is_tuple(hd(edges)) do
+
+  def edges(io, [], _), do: io
+
+  def edges(io, edges, gattrs) when is_nonempty_list(edges) and is_tuple(hd(edges)) do
     io
     |> newl()
     |> reduce(edges, fn {id, jd}, io ->
@@ -184,7 +236,7 @@ defmodule Exa.Dot.DotWriter do
   Write a chain of edges, without attributes, all on one line.
   The graph attributes supply the node aliases.
   """
-  @spec chain(I.indent(), [id()], D.graph_attrs()) :: I.indent()
+  @spec chain(I.indent(), [id(), ...], D.graph_attrs()) :: I.indent()
   def chain(io, [id | ids], gattrs \\ %{}) when ids != [] and is_id(id) do
     {i, _} = id_attrs!(id, gattrs)
 
@@ -251,6 +303,7 @@ defmodule Exa.Dot.DotWriter do
   # get an alias from an alias/attribute argument
   # return any attributes for rendering without the alias
   @spec alian(id(), alian()) :: {String.t(), D.attr_kw()}
+
   defp alian(i, nil), do: {to_string(i), []}
   defp alian(_, str) when is_string(str), do: {str, []}
   defp alian(i, map) when is_map(map), do: alian(i, map[i])

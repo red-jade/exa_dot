@@ -5,7 +5,7 @@ defmodule Exa.Dot.MixProject do
     [
       app: :exa_dot,
       name: "Exa Dot",
-      version: "0.1.0",
+      version: "0.1.1",
       elixir: "~> 1.15",
       erlc_options: [:verbose, :report_errors, :report_warnings, :export_all],
       start_permanent: Mix.env() == :prod,

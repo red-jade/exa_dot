@@ -6,38 +6,29 @@ defmodule Exa.Dot.Render do
   iff [GraphViz](https://graphviz.org/docs/layouts/dot/) is installed.
   """
   require Logger
-  use Exa.Dot.Constants
 
+  use Exa.Dot.Constants
+  alias Exa.Types, as: E
+
+  alias Exa.Dot.Types, as: D
+
+  # the GraphViz DOT executable
   @exe :dot
 
-  @typedoc "Allowed output rendering formats."
-  @type format() :: :bmp | :dot | :fig | :gif | :pdf | :ps | :ps2 | :plain | :png | :svg
-
-  # @doc "Get the DOT installed executable path."
-  # @spec installed() :: nil | E.filename()
-  # def installed(), do: Exa.System.installed(@exe)
-
-  # @doc """
-  # Ensure that target executable is installed and accessible 
-  # on the OS command line (PATH), otherwise raise an error.
-  # """
-  # @spec ensure_installed!() :: E.filename()
-  # def ensure_installed!(), do: Exa.System.ensure_installed!(@exe)
-
   @doc """
-  Render a DOT file.
+  Render a DOT file to image or other output format.
 
   Assumes GraphViz is installed.
 
   If the input file path does not have a filetype, 
   then the default `.dot` is appended.
 
-  If the `out_dir` is not specified,
-  then the output is written to the input directory.
+  If the optional output directory is not specified,
+  the image file is written to the input directory.
 
-  The return value is the full path to the output file.
+  The return value is the full path to the output file, or error.
   """
-  @spec render_dot(Path.t(), format(), nil | String.t()) :: String.t() | {:error, any()}
+  @spec render_dot(Path.t(), D.format(), nil | E.filename()) :: E.filename() | {:error, any()}
   def render_dot(in_path, format \\ :png, out_dir \\ nil) when is_atom(format) do
     in_path = to_string(in_path)
     fmt = format |> to_string() |> String.downcase()
@@ -56,8 +47,7 @@ defmodule Exa.Dot.Render do
 
     opts = [stderr_to_stdout: true]
 
-    # case installed() do
-    case @exe |> to_string() |> System.find_executable() do
+    case Exa.System.installed(@exe) do
       nil ->
         msg = "GraphViz 'dot' not installed"
         Logger.error(msg)

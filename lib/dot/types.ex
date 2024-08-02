@@ -2,38 +2,68 @@ defmodule Exa.Dot.Types do
   @moduledoc """
   Types for handling GraphViz DOT format.
   """
+  import Exa.Types
 
   # graph format is compatible with Agra agraph gdata format
   # if agraph is moved into Exa, move these types into shared Graph.Types
 
+  @typedoc "Vertex node ID."
   @type vert() :: pos_integer()
-  @type edge() :: {vert(), vert()}
+  defguard is_vert(i) when is_pos_int(i)
+
+  @typedoc "List of nodes."
+  @type verts() :: [vert()]
+
+  @typedoc "A directed edge is an ordered tuple of vertex IDs."
+  @type edge() :: {src :: vert(), dst :: vert()}
+  defguard is_edge(e)
+           when is_fix_tuple(e, 2) and
+                  is_vert(elem(e, 0)) and is_vert(elem(e, 1))
+
+  @typedoc "List of edges."
+  @type edges() :: [edge()]
+
+  @typedoc "A graph element is a node or an edge."
   @type gelem() :: vert() | edge()
+
+  @typedoc "A graph is just a list of nodes and edges."
   @type graph() :: [gelem()]
 
   @typedoc "Attributes for graph elements."
-  @type attr_kw() :: Keyword.t(String.t())
+  @type attr_kw() :: Keyword.t()
 
   @typedoc "Name of a digraph or nested subgraph (cluster)."
   @type gname() :: String.t()
 
-  @typedoc "Key for attribute map."
+  @typedoc "Key for attribute map: graph/subgraph name, node or edge."
   @type gkey() :: gelem() | gname()
 
   @typedoc """
-  A map of maps for node, edge, graph and subgraph (cluster) attributes
+  A map of keyword lists for node, edge, graph and subgraph (cluster) attributes.
+
+  For example:
+  - graph attribute: `"mydot" => [{:size, {4,4}}, {:rankdir, :TB}]`
+  - node attributes: `3 => [{:label, "foo", {:color, "red"}, {:shape, :ellipse}]`
+  - edge attributes: `{1,3} => [{:style, :dashed}, {:direction, :both}]`
   """
   @type graph_attrs() :: %{gkey() => attr_kw()}
 
   @typedoc """
   Index of alias names to integer id.
   Nodes are identified by integer.
+
   The 'alias' is the identifier used in the DOT file,
   when the node name is not a raw integer.
+
   The 'label' is an optional arbitrary string, which can be multi-line.
   A node with an integer id may have an alias, or a label, or both.
   """
   @type aliases() :: %{String.t() => vert()}
+
+  # output types ----------
+
+  @typedoc "Allowed output rendering formats."
+  @type format() :: :png | :svg | :bmp | :dot | :fig | :gif | :pdf | :ps | :ps2 | :plain
 
   # ----------------------------
   # attribute value enumerations
