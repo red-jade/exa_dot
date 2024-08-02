@@ -16,9 +16,9 @@ Module path: `Exa.Dot`
 - Write DOT files 
 - Render DOT files to images, if GraphViz DOT is installed
 
-To convert between different graph formats, 
-see other Exa projects for Agraph format (AGR) 
-and Erlang `digraph` interfaces.
+To convert between different graph formats, see other Exa projects:
+- `Exa.Agr` Agraph interchange format  
+- `Exa.Dig` interface for Erlang `digraph` graph store
 
 ### License
 
