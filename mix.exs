@@ -5,7 +5,7 @@ defmodule Exa.Dot.MixProject do
     [
       app: :exa_dot,
       name: "Exa Dot",
-      version: "0.1.1",
+      version: "0.1.2",
       elixir: "~> 1.15",
       erlc_options: [:verbose, :report_errors, :report_warnings, :export_all],
       start_permanent: Mix.env() == :prod,
@@ -35,9 +35,9 @@ defmodule Exa.Dot.MixProject do
     [
       # runtime code dependencies ----------
 
-      {:exa, git: "https://github.com/red-jade/exa_core.git", tag: "v0.1.4"},
-      {:exa_space, git: "https://github.com/red-jade/exa_space.git", tag: "v0.1.4"},
-      {:exa_color, git: "https://github.com/red-jade/exa_color.git", tag: "v0.1.4"},
+      {:exa, git: "https://github.com/red-jade/exa_core.git", tag: "v0.1.5"},
+      {:exa_space, git: "https://github.com/red-jade/exa_space.git", tag: "v0.1.5"},
+      {:exa_color, git: "https://github.com/red-jade/exa_color.git", tag: "v0.1.5"},
 
       # building, documenting, testing ----------
 
